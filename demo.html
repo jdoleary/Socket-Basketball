@@ -1,0 +1,307 @@
+<html>
+   <head>
+      <title>Box2dWeb Demo</title>
+   </head>
+   <h2> Click to launch the ball </h2>
+   <div id="ballinfo"></div>
+   <body onload="init();">
+		<div id="stats"></div>
+      <canvas id="canvas" width="600" height="600" style="background-color:#333333;" ></canvas>
+   </body>
+   
+	<script src="stats.js-master/build/stats.min.js"></script>
+   <script type="text/javascript" src="Box2dWeb-2.1.a.3.min.js"></script>
+
+    
+   <script type="text/javascript">
+   /*  Portions of the below code have been modified from code which included the following copyright:
+	Copyright (c) 2013 Suffick at Codepen (http://codepen.io/suffick) and GitHub (https://github.com/suffick)
+
+	Permission is hereby granted, free of charge, to any person obtaining a copy
+	of this software and associated documentation files (the "Software"), to deal
+	in the Software without restriction, including without limitation the rights
+	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	copies of the Software, and to permit persons to whom the Software is
+	furnished to do so, subject to the following conditions:
+
+	The above copyright notice and this permission notice shall be included in
+	all copies or substantial portions of the Software.
+
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+	THE SOFTWARE.
+	*/
+   //stats.js
+			var stats = new Stats();
+			stats.setMode( 0 );
+			document.getElementById('stats').appendChild( stats.domElement );
+   
+	var world_scale = 30.0;
+	var debug_draw_scale = 30;//7.5;
+	var draw_scale = debug_draw_scale;
+	var boundsscale = 1;
+   var ctx; //for drawing
+   var img_ball= new Image();
+   img_ball.src = "basketball.png"
+   var img_court = new Image();
+   img_court.src = "court.jpg";
+   var img_hoop = new Image();
+   img_hoop.src = "hoop.png";
+   
+   //the basketball
+   var ball;
+   var throw_velx;
+   var throw_vely;
+   var hoop_points = [];
+   var world;
+   var vec = Box2D.Common.Math.b2Vec2;
+      function init() {
+         var   b2Vec2 = Box2D.Common.Math.b2Vec2
+            ,  b2AABB = Box2D.Collision.b2AABB
+         	,	b2BodyDef = Box2D.Dynamics.b2BodyDef
+         	,	b2Body = Box2D.Dynamics.b2Body
+         	,	b2FixtureDef = Box2D.Dynamics.b2FixtureDef
+         	,	b2Fixture = Box2D.Dynamics.b2Fixture
+         	,	b2World = Box2D.Dynamics.b2World
+         	,	b2MassData = Box2D.Collision.Shapes.b2MassData
+         	,	b2PolygonShape = Box2D.Collision.Shapes.b2PolygonShape
+         	,	b2CircleShape = Box2D.Collision.Shapes.b2CircleShape
+         	,	b2DebugDraw = Box2D.Dynamics.b2DebugDraw
+            ,  b2MouseJointDef =  Box2D.Dynamics.Joints.b2MouseJointDef
+            ,  b2RevoluteJointDef =  Box2D.Dynamics.Joints.b2RevoluteJointDef
+            ,  b2DistanceJointDef =  Box2D.Dynamics.Joints.b2DistanceJointDef
+            ;
+         
+         world = new b2World(
+               new b2Vec2(0, 10)    //gravity
+            ,  true                 //allow sleep
+         );
+         
+         var fixDef = new b2FixtureDef;
+         fixDef.density = 1.0;
+         fixDef.friction = 0.5;
+         fixDef.restitution = 0.2;
+         
+		fixDef.filter.categoryBits = 0x0004;
+			fixDef.filter.maskBits = 0x0001|0x0002|0x0003;
+         var bodyDef = new b2BodyDef;
+         
+        
+         //create ground
+         bodyDef.type = b2Body.b2_staticBody;
+         fixDef.shape = new b2PolygonShape;
+         fixDef.shape.SetAsBox(20, 2);
+         bodyDef.position.Set(10, 400 / 30 + 1.8);
+         world.CreateBody(bodyDef).CreateFixture(fixDef);
+         bodyDef.position.Set(10, -1.8);
+         world.CreateBody(bodyDef).CreateFixture(fixDef);
+         fixDef.shape.SetAsBox(2, 14);
+         bodyDef.position.Set(-1.8, 13);
+         world.CreateBody(bodyDef).CreateFixture(fixDef);
+         bodyDef.position.Set(21.8, 13);
+         world.CreateBody(bodyDef).CreateFixture(fixDef);
+		 
+		 
+         
+		//make hoop:
+		fixDef.shape = new b2CircleShape(0.05);
+		var hoopx = 0.8;
+		var hoopy = 5;
+				//only collide with ball
+				fixDef.filter.categoryBits = 0x0002;
+				fixDef.filter.maskBits = 0x0001;
+			bodyDef.position.Set(hoopx, hoopy);
+			var hoop_point = world.CreateBody(bodyDef).CreateFixture(fixDef);
+			hoop_points.push(hoop_point.m_body);
+			bodyDef.position.Set(hoopx+(2/3)*4, hoopy);
+			hoop_point = world.CreateBody(bodyDef).CreateFixture(fixDef);
+			hoop_points.push(hoop_point.m_body);
+	
+
+         
+         
+         //create basketball
+         bodyDef.type = b2Body.b2_dynamicBody;
+			fixDef.shape = new b2CircleShape(0.12);
+            bodyDef.position.x = 1+1.4;
+            bodyDef.position.y = 1;
+			
+			//fixDef.density = 0.5;
+			//fixDef.friction = 0.1;
+			fixDef.restitution = 0.6;
+			document.getElementById('ballinfo').innerText = (fixDef.density + "|" + fixDef.friction + "|" + fixDef.restitution);
+			//fixDef.filter.groupIndex = -2;
+			fixDef.filter.categoryBits = 0x0001;
+			fixDef.filter.maskBits = 0x0002|0x0004;
+            ball = world.CreateBody(bodyDef).CreateFixture(fixDef);
+			ball = ball.m_body;//this is the ball
+         
+            bodyDef.position.x = 1.4;
+            bodyDef.position.y = 6;
+		 
+		
+		 
+		ctx = document.getElementById("canvas").getContext("2d");
+         //setup debug draw
+         var debugDraw = new b2DebugDraw();
+			debugDraw.SetSprite(ctx);
+			debugDraw.SetDrawScale(debug_draw_scale);
+			debugDraw.SetFillAlpha(0.2);
+			debugDraw.SetLineThickness(1.0);
+			debugDraw.SetFlags(b2DebugDraw.e_shapeBit | b2DebugDraw.e_jointBit);
+			world.SetDebugDraw(debugDraw);
+			
+         
+         window.setInterval(update, 1000 / 60);
+         
+         //mouse
+         
+         var mouseX, mouseY, draw_mouseX, draw_mouseY, mousePVec, isMouseDown, selectedBody, mouseJoint;
+         var canvasPosition = getElementPosition(document.getElementById("canvas"));
+         
+         document.addEventListener("mousedown", function(e) {
+            isMouseDown = true;
+            handleMouseMove(e);
+            //document.addEventListener("mousemove", handleMouseMove, true);
+         }, true);
+         document.addEventListener("mousemove", handleMouseMove, true);
+         document.addEventListener("mouseup", function() {
+            //document.removeEventListener("mousemove", handleMouseMove, true);
+            isMouseDown = false;
+            mouseX = undefined;
+            mouseY = undefined;
+         }, true);
+         
+         function handleMouseMove(e) {
+            draw_mouseX = (e.clientX - canvasPosition.x) / world_scale;
+            draw_mouseY = (e.clientY - canvasPosition.y) / world_scale;
+			if(isMouseDown){
+				mouseX = draw_mouseX;
+				mouseY = draw_mouseY;
+			}
+         };
+         
+         function getBodyAtMouse() {
+            mousePVec = new b2Vec2(mouseX, mouseY);
+            var aabb = new b2AABB();
+            aabb.lowerBound.Set(mouseX - 0.001, mouseY - 0.001);
+            aabb.upperBound.Set(mouseX + 0.001, mouseY + 0.001);
+            
+            // Query the world for overlapping shapes.
+
+            selectedBody = null;
+            world.QueryAABB(getBodyCB, aabb);
+            return selectedBody;
+         }
+
+         function getBodyCB(fixture) {
+            if(fixture.GetBody().GetType() != b2Body.b2_staticBody) {
+               if(fixture.GetShape().TestPoint(fixture.GetBody().GetTransform(), mousePVec)) {
+                  selectedBody = fixture.GetBody();
+                  return false;
+               }
+            }
+            return true;
+         }
+
+
+         //update
+		 
+         function update() {
+			
+				stats.begin();
+			//Shoo the ball:
+			if(isMouseDown){
+				throw_velx = (mouseX-ball.m_xf.position.x);
+				throw_vely = (mouseY-ball.m_xf.position.y);
+			}else{
+				if(throw_velx !== 0 && throw_vely !== 0){
+					ball.SetAwake(true);
+					ball.SetLinearVelocity(new vec(throw_velx,throw_vely));
+					throw_velx = 0;
+					throw_vely = 0;
+				}
+				
+			}
+					
+
+			//world step
+            world.Step(1 / 60, 10, 10);
+            world.DrawDebugData();
+			draw_loop();
+            world.ClearForces();
+			
+				stats.end();
+         };
+		 var img_ball_size = 10;
+         function draw_loop(){
+			//show mouse:
+			rotateAndPaintImage(img_ball,0,draw_mouseX,draw_mouseY,10,10,20,20);
+			
+		 
+			rotateAndPaintImage(img_court,0,0,0,0,0,594,396);
+			rotateAndPaintImage(img_ball,ball.m_xf.GetAngle(),ball.m_xf.position.x,ball.m_xf.position.y,(img_ball_size/2),(img_ball_size/2),img_ball_size,img_ball_size);
+			rotateAndPaintImage(img_hoop,0,0.15,4.4,0,0,407/4.4,207/4.4);
+
+			
+		 }
+		function drawLineForList(obj){
+			for(var i = 0; i < obj.length; i++){
+				for(var j = 0; j < obj[i].netParts.length-1; j++){
+					ctx.beginPath();
+					ctx.moveTo(obj[i].netParts[j].body.m_xf.position.x*draw_scale, obj[i].netParts[j].body.m_xf.position.y*draw_scale);
+					ctx.lineTo(obj[i].netParts[j+1].body.m_xf.position.x*draw_scale, obj[i].netParts[j+1].body.m_xf.position.y*draw_scale);
+					ctx.lineWidth = 3;
+					ctx.stroke();
+				}
+			}
+
+		}
+		function rotateAndPaintImage ( image, angleInRad , positionX, positionY, axisX, axisY, scaleX, scaleY ) {
+			var prev = ctx.globalAlpha;
+			ctx.globalAlpha = 0;
+			
+			
+			ctx.translate( positionX*draw_scale, positionY*draw_scale );
+			ctx.rotate( angleInRad );
+			ctx.drawImage( image, -axisX*draw_scale/30, -axisY*draw_scale/30, scaleX*draw_scale/30, scaleY*draw_scale/30 );
+			ctx.rotate( -angleInRad );
+			ctx.translate( -positionX*draw_scale, -positionY*draw_scale );
+			
+			ctx.globalAlpha = prev;
+		}
+         //helpers
+         
+         //http://js-tut.aardon.de/js-tut/tutorial/position.html
+         function getElementPosition(element) {
+            var elem=element, tagname="", x=0, y=0;
+           
+            while((typeof(elem) == "object") && (typeof(elem.tagName) != "undefined")) {
+               y += elem.offsetTop;
+               x += elem.offsetLeft;
+               tagname = elem.tagName.toUpperCase();
+
+               if(tagname == "BODY")
+                  elem=0;
+
+               if(typeof(elem) == "object") {
+                  if(typeof(elem.offsetParent) == "object")
+                     elem = elem.offsetParent;
+               }
+            }
+
+            return {x: x, y: y};
+         }
+		
+
+
+      };
+   
+   </script>
+   
+   
+</html>
