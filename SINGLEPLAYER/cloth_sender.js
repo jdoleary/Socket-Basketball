@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015 Jordan O'Leary on behalf of Vectorform LLC
+Copyright (c) 2015 Jordan O'Leary
 */
 
 /*  A substantial portion of the following code (cloth physics) has been modified from a document
@@ -48,6 +48,8 @@ if(detectmobile()){
 
 var world_scale = 190.0;
 var score = 0;
+var score_consecutive = 0;
+var justMadeBasket = false;
 //net stuff
 var hoopx = 0.5;
 var hoopy = 2;
@@ -93,7 +95,8 @@ var canvas,
         px: 0,
         py: 0
     };
-
+	
+	
 //used to make "rope" of regular points between greater_points
 var Greater_Point = function (x, y) {
 
@@ -710,6 +713,14 @@ var ballSpawnBottom = 3.5;
 function update() {
     stats.begin();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+	var currentCamx = cam.x;
+	var currentCamy = cam.y
+	ctx.translate(currentCamx,currentCamy);
+	
+	//particles:
+	emitters[0].position.x = ball.m_xf.position.x * world_scale;
+	emitters[0].position.y = ball.m_xf.position.y * world_scale;
+	particle_loop();
 
     updateBox2d();
 	//invisible wall
@@ -718,8 +729,8 @@ function update() {
         ball.SetLinearVelocity(new vec(-vel.x, vel.y))
 
     }
-    //cloth.update();
-    //cloth.draw();
+    cloth.update();
+    cloth.draw();
 	//drawMouse loc
 	//if(isMouseDown && !ball.IsAwake() && !gameOver)drawCir(mouse.x,mouse.y,20,mouseColor);
 	if(debug){
@@ -751,6 +762,12 @@ function update() {
         //console.log('basket!');
         respawnInSameSpot = false;
         score++;
+		score_consecutive++;
+		
+		if(score_consecutive == 2)sound_boom.play();
+		if(score_consecutive == 3)sound_fire.play();
+		sound_swoosh.play();
+		justMadeBasket = true;
     }
     if (ball.m_xf.position.y > hoopy + 0.6 && !gameOver) {
 		//if ball is travelling downward
@@ -771,7 +788,9 @@ function update() {
     stats.end();
 
 
+	ctx.translate(-currentCamx,-currentCamy);
     requestAnimFrame(update);
+	
 }
 function GameOver(){
 	gameOver = true;
@@ -782,13 +801,14 @@ function GameOver(){
 	
 }
 function createBallAt(x,y){
+	if(!justMadeBasket)score_consecutive = 0;
+	justMadeBasket = false;
 	createBall();
 	if (!respawnInSameSpot) ballSpawn = new b2Vec2(x, y);
 	if(ballSpawn !== undefined){
 		lastBallSpawnLoc = "" + ballSpawn.x + " " + ballSpawn.y;
 		ball.SetPosition(ballSpawn);
 	}
-	send_ballSpawn({x:ball.m_xf.position.x,y:ball.m_xf.position.y});
 	ball.SetAwake(false);
 	respawnInSameSpot = true;
 }
@@ -830,28 +850,10 @@ function handleTouchPadMove(e) {
 var mouseColor;
 var tapStart;
 
-//socket.io
-function messageMouse(down,x,y,startX,startY){
-	isMouseDown = down;
-	mouse.down = down;
-	
-	var rect = canvas.getBoundingClientRect();
-	mouse.x = x - rect.left - (startY -ball.m_xf.position.x*world_scale) -0.5*world_scale;
-	mouse.y = y - rect.top - (startX -ball.m_xf.position.y*world_scale) -0.5*world_scale;
-	
-	mouse.x = x;
-	mouse.y = y;
-	//box2d
-	simulateMouseMove(x,y);
-	//box2d
-	e.preventDefault();
-
-}
 //box2d
 function start() {
 
     window.onmousedown = function (e) {
-		tapStart = {x:mouse.x,y:mouse.y};
         mouse.button = e.which;
         mouse.px = mouse.x;
         mouse.py = mouse.y;
@@ -859,8 +861,6 @@ function start() {
         mouse.x = e.clientX - rect.left,
             mouse.y = e.clientY - rect.top,
             mouse.down = true;
-			
-		send({"mouseDown":true,"mouse":{x:mouse.x,y:mouse.y},'tapStart':{x:tapStart.x,y:tapStart.y}});
 
         //box2d
         isMouseDown = true;
@@ -903,8 +903,8 @@ function start() {
 		send({"mouseDown":true,"mouse":{x:mouse.x,y:mouse.y},'tapStart':{x:tapStart.x,y:tapStart.y}});
 		
         var rect = canvas.getBoundingClientRect();
-        mouse.x = e.changedTouches[0].clientX - rect.left;// - (tapStart.clientX -ball.m_xf.position.x*world_scale) -0.5*world_scale;
-		mouse.y = e.changedTouches[0].clientY - rect.top;// - (tapStart.clientY -ball.m_xf.position.y*world_scale) -0.5*world_scale;
+        mouse.x = e.changedTouches[0].clientX - rect.left - (tapStart.clientX -ball.m_xf.position.x*world_scale) -0.5*world_scale;
+		mouse.y = e.changedTouches[0].clientY - rect.top - (tapStart.clientY -ball.m_xf.position.y*world_scale) -0.5*world_scale;
 		//box2d
 		handleTouchPadMove(e);
         //box2d
@@ -914,8 +914,6 @@ function start() {
 
     window.onmouseup = function (e) {
         mouse.down = false;
-		
-		send({"mouseDown":false,"mouse":{x:mouse.x,y:mouse.y},'tapStart':{x:tapStart.x,y:tapStart.y}});
         //box2d
         isMouseDown = false;
         //box2d
@@ -930,8 +928,6 @@ function start() {
             mouse.y = e.clientY - rect.top,
             //box2d
             handleMouseMove(e);
-			
-		send({"mouseDown":isMouseDown,"mouse":{x:mouse.x,y:mouse.y},'tapStart':{x:tapStart.x,y:tapStart.y}});
         //box2d
         e.preventDefault();
     };
@@ -959,10 +955,12 @@ var boundsscale = 1;
 
 var img_ball = new Image();
 img_ball.src = "basketball.png";
-var img_cross = new Image();
-img_cross.src = "crosshair.png";
+var img_ball_high = new Image();
+img_ball_high.src = "ball_highlight.png";
 var img_arrow = new Image();
 img_arrow.src = "uparrow.png";
+var img_buzzer_beater = new Image();
+img_buzzer_beater.src = "buzzer_beater.png";
 //the basketball
 var ball;
 var throw_velx = 0;
@@ -986,7 +984,8 @@ var b2Vec2 = Box2D.Common.Math.b2Vec2,
     b2DebugDraw = Box2D.Dynamics.b2DebugDraw,
     b2MouseJointDef = Box2D.Dynamics.Joints.b2MouseJointDef,
     b2RevoluteJointDef = Box2D.Dynamics.Joints.b2RevoluteJointDef,
-    b2DistanceJointDef = Box2D.Dynamics.Joints.b2DistanceJointDef;
+    b2DistanceJointDef = Box2D.Dynamics.Joints.b2DistanceJointDef,
+	b2ContactListener = Box2D.Dynamics.b2ContactListener;
 var debugDraw = new b2DebugDraw();
 //mouse
 
@@ -1068,7 +1067,6 @@ function calculateVerticalVelocityForHeight(desiredHeight) {
 }
 var ballsShot = 0;
 function updateBox2d() {
-
     //Shoot the ball:
     if (isMouseDown && !ball.IsAwake()) {
 
@@ -1090,8 +1088,6 @@ function updateBox2d() {
             ball.SetAwake(true);
             ball.ApplyTorque(0.2)
             ball.SetLinearVelocity(new vec(throw_velx, throw_vely));
-			send_velocity({x:throw_velx,y:throw_vely});
-			//console.log('vel: ' + throw_velx + "," + throw_vely);
             throw_velx = 0;
             throw_vely = 0;
 			ballsShot++;
@@ -1144,6 +1140,8 @@ function getElementPosition(element) {
     };
 }
 var img_ball_size = mouse_influence / 2 - 1;
+var img_ball_size_w = img_ball_size;
+var img_ball_size_h = img_ball_size;
 var ballPrediction = new Array(30);
 
 function drawCurve(points) {
@@ -1198,9 +1196,44 @@ function drawCir(centerX, centerY, radius, color) {
 function draw_loop() {
 
 
-	if(!gameOver)rotateAndPaintImage(img_cross, 0, mouse.x/draw_scale, mouse.y/draw_scale, (img_ball_size / 2), (img_ball_size / 2), img_ball_size, img_ball_size, 1);
+    if (ball.m_xf.position.y < 0) rotateAndPaintImage(img_arrow, 0, ball.m_xf.position.x, 0.3, 2.5, 2.5, 5, 5, 1);
+    //if (isMouseDown && !ball.IsAwake() && !gameOver) drawCurve(ballPrediction);
+	if(isMouseDown && !ball.IsAwake() && !gameOver){
+		
+		var lowestPoint = ballPrediction[0].y;
+		for(var i = 0; i < ballPrediction.length; i++){
+			drawCir(ballPrediction[i].x*draw_scale,ballPrediction[i].y*draw_scale,2,"#ffffff");
+			//console.log("low: " + ballPrediction[i].y);
+			if(ballPrediction[i].y > lowestPoint)break;
+			else lowestPoint = ballPrediction[i].y;
+		}
+	}
+	for (var i = 0; i < previousBalls.length; i++) {
+        rotateAndPaintImage(img_ball, previousBalls[i]['body'].m_xf.GetAngle(), previousBalls[i]['body'].m_xf.position.x, previousBalls[i]['body'].m_xf.position.y, (previousBalls[i]['body'].img_width / 2), (previousBalls[i]['body'].img_height / 2), previousBalls[i]['body'].img_width, previousBalls[i]['body'].img_height, previousBalls[i]['alpha']);
+        if (previousBalls[i]['alpha'] - 0.01 > 0) {
+            previousBalls[i]['alpha'] -= 0.01;
+        } else {
+            //ball is no longer moving, remove it
+            previousBalls[i]['body'].SetAwake(false);
+            previousBalls[i]['body'].GetWorld().DestroyBody(previousBalls[i]['body']);
+			clearInterval(previousBalls[i]['body'].spring_interval);
+            previousBalls.splice(i, 1);
+            i--;
+        }
+    }
+    //draw rectangles:
+    var prevFill = ctx.fillStyle;
+    ctx.fillStyle = "#ad926b";
+    for (var i = 0; i < drawBoxes.length; i++) {
+        var rect = drawBoxes[i].m_aabb;
+        ctx.fillRect(rect.lowerBound.x * world_scale, rect.lowerBound.y * world_scale, (rect.upperBound.x - rect.lowerBound.x) * world_scale, (rect.upperBound.y - rect.lowerBound.y) * world_scale);
 
-
+    }
+    ctx.fillStyle = prevFill;
+	
+    rotateAndPaintImage(img_ball, ball.m_xf.GetAngle(), ball.m_xf.position.x, ball.m_xf.position.y, (ball.img_width / 2), (ball.img_height / 2), ball.img_width, ball.img_height, 1);
+	if(!ball.IsAwake() && ball.m_xf.position.y < ballSpawnBottom)rotateAndPaintImage(img_ball_high, ball.m_xf.GetAngle(), ball.m_xf.position.x, ball.m_xf.position.y, (img_ball_size / 2), (img_ball_size / 2), img_ball_size, img_ball_size, 1);
+	if(seconds <= 0)rotateAndPaintImage(img_buzzer_beater, 0, hoopx - 0.15, 1.6-0.565, 0, 0, 6, 34, 1);
 
 }
 
@@ -1233,17 +1266,66 @@ function createBall() {
     fixDef.restitution = 0.7;
     fixDef.filter.categoryBits = 0x0001;
     fixDef.filter.maskBits = 0x0002 | 0x0004;
-    if (ball !== undefined) previousBalls.push({
-        body: ball,
-        alpha: 1
-    });
+	
+    if (ball !== undefined){ 
+		previousBalls.push({
+			body: ball,
+			alpha: 1
+		});
+	}
     ball = world.CreateBody(bodyDef).CreateFixture(fixDef);
+	ball.SetUserData({"name":"ball","self":ball.m_body});
     ball = ball.m_body; //this is the ball
+	ball.img_width = img_ball_size;
+	ball.img_height = img_ball_size;
+	ball.spring_value = 0;
+	ball.spring_interval;
     ballLastPosX = ball.m_xf.position.x;
     ballLastPosY = ball.m_xf.position.y;
 }
 var drawBoxes = [];
+var contactListener;
 
+function springTheValue(t){
+	//http://en.wikipedia.org/wiki/Damped_sine_wave
+	//t should be between 0 and 5 for effect
+	var y = Math.pow(Math.E,(-t)) * Math.cos(2*Math.PI*t);
+	return y;
+}
+function springtheBall(mag,theBall,max){
+	if(theBall === undefined)return;
+	if(mag > max)mag = max;
+	theBall.spring_value = 0;
+	clearInterval(theBall.spring_interval);
+	theBall.spring_interval = window.setInterval(function(){
+		theBall.img_height = -springTheValue(theBall.spring_value)*mag + img_ball_size;
+		theBall.img_width = springTheValue(theBall.spring_value)*mag + img_ball_size;
+		theBall.spring_value += 0.1;
+		if(theBall.spring_value >= 3.5)clearInterval(theBall.spring_interval);
+	},50);
+}
+function findMagnitude(x,y){
+	return Math.sqrt(x*x + y*y);
+}
+function camera(){
+	this.x = 0;
+	this.y = 0;
+	this.shakeStartAmount = 5;
+	this.shakeValue = 0;
+	this.shakeInterval;
+	this.shake = function(xDirection,yDirection){
+		//xDir and yDir should be either -1 or 1
+		this.shakeValue = 0;
+		clearInterval(this.shakeInterval);
+		this.shakeInterval = window.setInterval(function(){
+			this.x = xDirection * springTheValue(this.shakeValue)*this.shakeStartAmount;
+			this.y = yDirection * springTheValue(this.shakeValue)*this.shakeStartAmount;
+			this.shakeValue += 0.1;
+			if(this.shakeValue >= 3.5)clearInterval(this.shakeInterval);
+		}.bind(this),20);
+	}
+}
+var cam = new camera();
 var rightBoundry;
 function init() {
 
@@ -1252,6 +1334,35 @@ function init() {
         , true //allow sleep
     );
 
+	contactListener = new b2ContactListener();
+	contactListener.BeginContact = function(contact, manifold){
+		if(contact.m_fixtureA.m_userData === null || contact.m_fixtureB.m_userData === null)return;
+		if(contact.m_fixtureA.m_userData['name'] == "hoop" || contact.m_fixtureB.m_userData['name'] == "hoop"){
+			sound_rim.play();
+			var collideMagnitude = findMagnitude(contact.m_fixtureA.m_body.GetLinearVelocity().y,contact.m_fixtureA.m_body.GetLinearVelocity().x);
+			springtheBall(1.5*collideMagnitude/6,contact.m_fixtureA.m_userData['self'],2);
+		}
+		var collideMagnitude = findMagnitude(contact.m_fixtureB.m_body.GetLinearVelocity().y,contact.m_fixtureB.m_body.GetLinearVelocity().x);
+		if(contact.m_fixtureA.m_userData['name'] == "backboard" || contact.m_fixtureB.m_userData['name'] == "backboard"){
+			sound_ball_bounce.play();
+			springtheBall(1.5*collideMagnitude/6,contact.m_fixtureB.m_userData['self'],2);
+			cam.shake(-1*collideMagnitude/6,0);
+		}
+		if(contact.m_fixtureA.m_userData['name'] == "wall" || contact.m_fixtureB.m_userData['name'] == "wall"){
+			sound_ball_bounce.play();
+			springtheBall(1.5*collideMagnitude/6,contact.m_fixtureB.m_userData['self'],2);
+			cam.shake(-1*collideMagnitude/6,0);
+		}
+		if((contact.m_fixtureA.m_userData['name'] == "ground" || contact.m_fixtureB.m_userData['name'] == "ground") && collideMagnitude > 2){
+			sound_ball_bounce.play();
+			springtheBall(1.5*collideMagnitude/9,contact.m_fixtureB.m_userData['self'],2.5);
+			cam.shake(0,1*collideMagnitude/9);
+		}
+		
+
+	}
+	world.SetContactListener(contactListener);
+	
     fixDef.density = 1.0;
     fixDef.friction = 0.5;
     fixDef.restitution = 0.2;
@@ -1266,19 +1377,23 @@ function init() {
     fixDef.shape.SetAsBox(20, 2);
     bodyDef.position.Set(10, (canvas.height+20) / world_scale + 1.8);
     drawBoxes.push(world.CreateBody(bodyDef).CreateFixture(fixDef));
+	drawBoxes[drawBoxes.length - 1].SetUserData({"name":"ground"});
 
     fixDef.shape.SetAsBox(.2, 14);
     bodyDef.position.Set(-.1, 13);
     drawBoxes.push(world.CreateBody(bodyDef).CreateFixture(fixDef));
+	drawBoxes[drawBoxes.length - 1].SetUserData({"name":"wall"});
 	rightBoundry = (canvas.width) / world_scale;
 	ballSpawnRight = rightBoundry - 0.5;
     bodyDef.position.Set(rightBoundry, 13);
     drawBoxes.push(world.CreateBody(bodyDef).CreateFixture(fixDef));
+	drawBoxes[drawBoxes.length - 1].SetUserData({"name":"wall"});
 
     //create backboard
     fixDef.shape.SetAsBox(0.05, 1.11 / 2);
     bodyDef.position.Set(hoopx - 0.18, 1.6);
     drawBoxes.push(world.CreateBody(bodyDef).CreateFixture(fixDef));
+	drawBoxes[drawBoxes.length - 1].SetUserData({"name":"backboard"});
 	
 	//this box keeps the ball from getting stuck
     fixDef.shape.SetAsBox(0.05, 1.11 / 2);
@@ -1294,10 +1409,12 @@ function init() {
     fixDef.filter.maskBits = 0x0001;
     bodyDef.position.Set(hoopx, hoopy);
     var hoop_point = world.CreateBody(bodyDef).CreateFixture(fixDef);
+	hoop_point.SetUserData({"name":"hoop"});
     hoop_points.push(hoop_point.m_body);
     bodyDef.position.Set(hoopx + 0.5, hoopy);
     hoop_point = world.CreateBody(bodyDef).CreateFixture(fixDef);
     hoop_points.push(hoop_point.m_body);
+	hoop_point.SetUserData({"name":"hoop"});
 };
 function detectmobile() { 
  if( navigator.userAgent.match(/Android/i)
@@ -1332,6 +1449,7 @@ function startCountdown(){
 	// update the tag with id "countdown" every 1 second
 	setInterval(updateCountdown, 1000);
 }
+var horn_playing = false;
 function updateCountdown(){
 	if(gameOver){
 		if(usingMobile){
@@ -1363,6 +1481,9 @@ function updateCountdown(){
     seconds = parseInt(seconds_left % 60);
 	if(seconds <= 0 && !isMouseDown){
 		ball.SetAwake(true);
+	}
+	if(seconds <= 0 && !horn_playing){
+		sound_horn.play();
 	}
     // format countdown string + set tag value
 	if(seconds >= 0){
