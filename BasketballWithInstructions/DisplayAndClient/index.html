@@ -2,14 +2,13 @@
 <html>
 
 <head>
-	<meta name="viewport" content="user-scalable=no"/>
     <title>Basketball</title>
    <link href='http://fonts.googleapis.com/css?family=Lobster' rel='stylesheet' type='text/css'>
 	<style>
 		*{
-		font-family: 'Lobster', cursive;
+			font-family: 'Lobster', cursive;
 		}
-		.notHighlightable{
+		#info,#countdown{
 			pointer-events: none;
 			-webkit-touch-callout: none;
 			-webkit-user-select: none;
@@ -17,7 +16,6 @@
 			-moz-user-select: none;
 			-ms-user-select: none;
 			user-select: none;
-		
 		}
 		#info{
 			
@@ -110,6 +108,12 @@
 			bottom: 0;
 			right: 0;
 		}
+		canvas{
+			margin: auto;
+			position: absolute;
+			left: 0;
+			right: 0;
+		}
 		.joButton{
 			width: 80%;
 			height: 20%;
@@ -167,75 +171,28 @@
 			<td style="text-align:center">Accuracy</td>
 			<td id="endAcc" style="text-align:center">000</td>
 		</tr>
-		<tr id="restartButton" style="background-color:#487465;">
-			<td colspan=2 style="text-align:center">
-			<div style="color: #1c4d3b">Restart</div>
-			</td>
-		</tr>
 	
 	</table>
 	<div id="tableCover" style="background-color:#aaaaaa;" class="absoluteCenter"></div>
 	<div id="gameHolder" class="hidden">
-		<canvas id="canvas"style="position:absolute;">Your browser does not support this functionality.</canvas>	
-		<div id="info" class="notHighlightable" style="position:absolute; top:50px"></div>
-		<div id="countdown"  class="notHighlightable" style="position:absolute; left:0; top:10px; width:100%; text-align:center; font-size:42px;"></div>
+		<canvas id="canvas"></canvas>	
+		<div id="info" style="position:absolute; top:50px"></div>
+		<div id="countdown" style="position:absolute; left:0; top:10px; width:100%; text-align:center; font-size:42px;"></div>
 				
-		<div id="statsHolder" style="position: absolute; left:0; top:0;"></div>	
-		<div id="wheretoswipe" class="hidden" style="border-style:solid; width: 80%; height:30%; margin-left:10%; position:absolute; top:60%; font-size: 16px; font-size:5vw; text-align: center;"><span style="position:relative; top: 30%;">Touch Here to Aim</span></div>
-
+		<div id="statsHolder" style="position: absolute; left:0; top:0;"></div>
 	</div>
 	<div id="canvasResizerHack" style="position:absolute; left: 0px; top: 0px; visibility: hidden; width:100%; height:100%;"></div>
-	
-	
-	
-	<div id="startScreen" style="background-color:#ad926b; background-image:url('bg.png');background-repeat: no-repeat;background-size:100%; background-position:center;">
-		<span class="absoluteCenter notHighlightable" style="margin-top:15%;text-align:center;color:#ffffff;font-size:80pt"></span>
-	</div>
-    <script type="text/javascript" src="cloth_sender.js"></script>
+	<div id="wheretoswipe" class="hidden" style="border-style:solid; width: 80%; height:30%; margin-left:10%; position:absolute; top:60%; font-size: 16px; font-size:5vw; text-align: center;"><span style="position:relative; top: 30%;">Touch Here to Aim</span></div>
+
+    <script type="text/javascript" src="Cloth.js"></script>
 	<script type="text/javascript">
-	
-		if(usingMobile && screen.orientation){
-			screen.orientation.lock('portrait');
-		}
-		
 		var gameStarted = false;
-		$('table').hide();
-		$('#tableCover').hide();
-		//$('#tableCover').width($('table').width());
-		//$('#tableCover').height($('table').height());
-		$('#startScreen').width(window.innerWidth);
-		$('#startScreen').height(window.innerHeight);
-		$('body').on('touchstart',function(){
-				if(!gameStarted){
-				$('#startScreen').hide();
-				$('table').show();
-				$('#tableCover').show();
-				window.setTimeout(function(){
-					initGame();
-				},100);
-			}
-		});
-		
-		$('#startScreen').on('click',function(){
-			$('#startScreen').hide();
-			$('table').show();
-			$('#tableCover').show();
-			initGame();
-			
-		});
-		var emitters,fields;
-		function initGame(){
-				
+		function initGame(canvasWidth, canvasHeight){
 			canvas = document.getElementById('canvas');
 			ctx = canvas.getContext('2d');
-			canvas.width =  document.getElementById('canvasResizerHack').clientWidth;
-			if(canvas.width < 800)canvas.width = 800;
-			canvas.height =  document.getElementById('canvasResizerHack').clientHeight;
-			if(canvas.height < 800)canvas.height = 800;
-			console.log('width: ' + canvas.width);
-			console.log('height: ' + canvas.height);
-			
-
+			canvas.width =  canvasWidth;
+			canvas.height =  canvasHeight;
+			console.log('canvas created: ' + canvasWidth + "," + canvasHeight);
 			
 			//particle.js
 			// Add one emitter located at `{ x : 100, y : 230}` from the origin (top left)
@@ -249,38 +206,60 @@
 			
 			//init box2d
 			init();
-            StartGame();
+			//now waiting for startBallSent (ballSpawn message);
+			send_gameStarted();
+			 startBallSent = false;
+
 			
 
 		
 		}
+		function restartInit(canvasWidth, canvasHeight){
+			gameOver = false;
+			
+			$('#tableCover').show();
+			//pulled from start game:
+			startCountdown();
+			startBallSent = true;
+			score = 0;
+			score_consecutive = 0;
+			ballsShot = 0;
+			ctx.strokeStyle = '#ffffff';
+			gameStarted = true;
+			//
+		
+			canvas.width =  canvasWidth;
+			canvas.height =  canvasHeight;
+			init_ground();
+			
+			//now waiting for startBallSent (ballSpawn message);
+			send_gameStarted();
+			 startBallSent = false;
+		
+		}
 		function StartGame(){
+			startCountdown();
+			startBallSent = true;
+			score = 0;
+			ctx.strokeStyle = '#ffffff';
 			if(gameStarted)return;
 			gameStarted = true;
-			createBallAt(hoopx + 2,2.5);
 			start();
-			startCountdown();
 			var gameHolder = document.getElementById('gameHolder');
 			gameHolder.className = "visible";
 		
 		}
-		
-//sound fx
-var sound_ball_bounce = new Audio('ball_bounce.wav');
-var sound_swoosh = new Audio('net.wav');
-var sound_rim = new Audio('rim.wav');
-sound_rim.volume = 0.01;
-var sound_fire = new Audio('onfire.wav');
-var sound_horn = new Audio('horn.wav');
-var sound_boom = new Audio('boomshakalaka.wav');
+
 	</script>
 	
 	
 	
-	
+    <!--<script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>-->
+    <script src="socket.io-1.2.0.js"></script>
     <script>
 		var debug = false;
 		if(!debug)$('#stats').hide();
+	
 		//on screen text feedback
 		var infoDiv = document.getElementById('info');
 		var infoList = [];
@@ -301,23 +280,46 @@ var sound_boom = new Audio('boomshakalaka.wav');
 			}
 
 		}
+	
+		var startBallSent;//if the first ballSpawn message has been sent
+		var waiting_for_init_game = true;
+      var socket = io.connect('http://192.168.251.88:3000/');
+      socket.on('mouse', function(msg){
+		//pushInfo("mouse");
+		messageMouse(msg['mouseDown'],msg['mouse']['x'],msg['mouse']['y'],msg['tapStart']['x'],msg['tapStart']['y']);
+      });
+	  socket.on('ballSpawn', function(msg){
+		if(msg.x !== undefined && msg.y !== undefined)pushInfo('ballSpawn: ' + msg.x.toFixed(2) + " , " + msg.y.toFixed(2));
+		createBallAt(msg['x'],msg['y']);
+		if(!startBallSent){
+			StartGame();
+		}
+	  });
+	  var useLerp = true;
+	  socket.on('initGame', function(msg){
+		pushInfo("start game with size: " + msg.width + "," + msg.height);
+		countdownSeconds = msg.countdownSeconds;
+		useLerp = msg.useLerp;
+		if(!waiting_for_init_game){
+			restartInit(msg.width,msg.height);
+		}else{
+			initGame(msg.width,msg.height);
+			waiting_for_init_game = false;
+		}
+	  });
+	  socket.on('velocity', function(msg){
+		if(msg['x'] !== undefined && msg['y'] !== undefined)pushInfo("got velocity " + msg['x'].toFixed(2) + "," + msg['y'].toFixed(2));
+		gotVelocity(msg['x'],msg['y']);
 		
+	  });
+	  function send_gameStarted(msg){
+		pushInfo("send init confirmed ");
+		socket.emit('initGameConfirmed',msg);
+		return false;
+	  }
 	  function restart(){
 		window.location.reload(false);
 	  }
-		
-
-	  var mouseMessageCounter = 0;
-	$(document).ready(function(){
-		$('#restartButton').on('touchstart',function(){
-			$(this).css('background-color','#668b73');
-			restart();
-		});
-		$('#restartButton').click(function(){
-			$(this).css('background-color','#668b73');
-			restart();
-		});
-	});
     </script>
 
 </body>

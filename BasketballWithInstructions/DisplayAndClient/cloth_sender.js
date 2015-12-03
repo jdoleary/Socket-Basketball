@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015 Jordan O'Leary
+Copyright (c) 2015 Jordan O'Leary on behalf of Vectorform LLC
 */
 
 /*  A substantial portion of the following code (cloth physics) has been modified from a document
@@ -809,6 +809,7 @@ function createBallAt(x,y){
 		lastBallSpawnLoc = "" + ballSpawn.x + " " + ballSpawn.y;
 		ball.SetPosition(ballSpawn);
 	}
+	send_ballSpawn({x:ball.m_xf.position.x,y:ball.m_xf.position.y});
 	ball.SetAwake(false);
 	respawnInSameSpot = true;
 }
@@ -850,6 +851,23 @@ function handleTouchPadMove(e) {
 var mouseColor;
 var tapStart;
 
+//socket.io
+function messageMouse(down,x,y,startX,startY){
+	isMouseDown = down;
+	mouse.down = down;
+	
+	var rect = canvas.getBoundingClientRect();
+	mouse.x = x - rect.left - (startY -ball.m_xf.position.x*world_scale) -0.5*world_scale;
+	mouse.y = y - rect.top - (startX -ball.m_xf.position.y*world_scale) -0.5*world_scale;
+	
+	mouse.x = x;
+	mouse.y = y;
+	//box2d
+	simulateMouseMove(x,y);
+	//box2d
+	e.preventDefault();
+
+}
 //box2d
 function start() {
 
@@ -869,7 +887,7 @@ function start() {
 
         //e.preventDefault();
     };
-    window.addEventListener("touchstart", function (e) {
+	window.ontouchstart = function (e) {
 		//hide tooltip on first tap
 		if(!firstTap)document.getElementById('wheretoswipe').className = "hidden";
 		firstTap = true;
@@ -880,6 +898,7 @@ function start() {
         mouse.px = mouse.x;
         mouse.py = mouse.y;
 		
+		send({"mouseDown":true,"mouse":{x:mouse.x,y:mouse.y},'tapStart':{x:tapStart.x,y:tapStart.y}});
 		
         var rect = canvas.getBoundingClientRect();
         mouse.x = e.changedTouches[0].clientX - rect.left - (tapStart.clientX -ball.m_xf.position.x*world_scale) -0.5*world_scale;
@@ -889,14 +908,17 @@ function start() {
 		
 		mouseColor = '#ffffff';
 		e.preventDefault();
-	}, false);
-    window.addEventListener("touchend", function (e) {
+	}
+	window.ontouchend = function (e) {
 		isMouseDown = false;
+		send({"mouseDown":false,"mouse":{x:mouse.x,y:mouse.y},'tapStart':{x:tapStart.x,y:tapStart.y}});
 		e.preventDefault();
-	}, false);
-    window.addEventListener("touchmove", function(e){
+	}
+	window.ontouchmove = function(e){
         mouse.px = mouse.x;
         mouse.py = mouse.y;
+		
+		send({"mouseDown":true,"mouse":{x:mouse.x,y:mouse.y},'tapStart':{x:tapStart.x,y:tapStart.y}});
 		
         var rect = canvas.getBoundingClientRect();
         mouse.x = e.changedTouches[0].clientX - rect.left - (tapStart.clientX -ball.m_xf.position.x*world_scale) -0.5*world_scale;
@@ -906,7 +928,7 @@ function start() {
         //box2d
         e.preventDefault();
 	
-	}, false);
+	}
 
     window.onmouseup = function (e) {
         mouse.down = false;
@@ -1084,6 +1106,8 @@ function updateBox2d() {
             ball.SetAwake(true);
             ball.ApplyTorque(0.2)
             ball.SetLinearVelocity(new vec(throw_velx, throw_vely));
+			send_velocity({x:throw_velx,y:throw_vely});
+			//console.log('vel: ' + throw_velx + "," + throw_vely);
             throw_velx = 0;
             throw_vely = 0;
 			ballsShot++;

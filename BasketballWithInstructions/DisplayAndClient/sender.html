@@ -194,7 +194,7 @@
     <script type="text/javascript" src="cloth_sender.js"></script>
 	<script type="text/javascript">
 	
-		if(usingMobile && screen.orientation){
+		if(usingMobile){
 			screen.orientation.lock('portrait');
 		}
 		
@@ -249,7 +249,8 @@
 			
 			//init box2d
 			init();
-            StartGame();
+			if(singlePlayer) StartGame();
+			else send_initGame({'width':canvas.width,'height':canvas.height,'useLerp':true});
 			
 
 		
@@ -278,6 +279,8 @@ var sound_boom = new Audio('boomshakalaka.wav');
 	
 	
 	
+    <!--<script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>-->
+    <script src="socket.io-1.2.0.js"></script>
     <script>
 		var debug = false;
 		if(!debug)$('#stats').hide();
@@ -307,7 +310,51 @@ var sound_boom = new Audio('boomshakalaka.wav');
 	  }
 		
 
+      var socket = io.connect('http://192.168.251.88:3000/');
+	  var singlePlayer = false;
+	  var doNotSendMessages = false;
 	  var mouseMessageCounter = 0;
+	  function send(msg){
+		if(doNotSendMessages)return;
+		//console.log('sent mouse:' + msg['mouse']['x'] + "," + msg['mouse']['y']);
+		//console.log(msg);
+		if(mouseMessageCounter % 5 == 0 || !msg['mouseDown']){
+			if(msg['mouse']['x'] !== 0 && msg['mouse']['y'] !== 0)socket.emit('mouse', msg);
+			//pushInfo("mouse");
+		}
+		mouseMessageCounter++;
+        return false;
+      }
+	  function send_velocity(msg){
+		if(doNotSendMessages)return;
+		if(msg['x'] !== undefined && msg['y'] !== undefined)pushInfo('send vel ' + msg['x'].toFixed(2) + "," + msg['y'].toFixed(2));
+		socket.emit('velocity',msg);
+		return false;
+	  }
+	  function send_ballSpawn(msg){
+		if(doNotSendMessages)return;
+		if(msg.x !== undefined && msg.y !== undefined)pushInfo('sent ballSpawn ' + msg.x.toFixed(2) + "," + msg.y.toFixed(2));
+        socket.emit('ballSpawn', msg);
+        return false;
+      }
+	  function send_initGame(msg){
+		if(doNotSendMessages)return;
+		msg['countdownSeconds'] = countdownSeconds;
+		pushInfo('send init game ' + msg.width + "," + msg.height);
+		socket.emit('initGame',msg);
+		return false;
+	  }
+	  socket.on('initGameConfirmed',function(msg){
+		pushInfo('You are on the Jumbotron!');
+		StartGame();
+		doNotSendMessages = false;
+		
+	  });
+	  socket.on('displayAlreadyHasSender',function(msg){
+		pushInfo('You are plaing singleplayer!');
+		singlePlayer = true;
+		doNotSendMessages = true;
+	  });
 	$(document).ready(function(){
 		$('#restartButton').on('touchstart',function(){
 			$(this).css('background-color','#668b73');
@@ -318,6 +365,13 @@ var sound_boom = new Audio('boomshakalaka.wav');
 			restart();
 		});
 	});
+	function forceStartSinglePlayer(){
+		socket = null;
+		singlePlayer = true;
+		doNotSendMessages = true;
+		StartGame();
+	
+	}
     </script>
 
 </body>
