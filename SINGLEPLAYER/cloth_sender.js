@@ -873,7 +873,9 @@ function start() {
 		//hide tooltip on first tap
 		if(!firstTap)document.getElementById('wheretoswipe').className = "hidden";
 		firstTap = true;
-		tapStart = e.changedTouches[0];
+		//tapStart = e.changedTouches[0];
+		tapStart = {clientX:e.changedTouches[0].clientX,clientY:e.changedTouches[0].clientY};
+        console.log('change tap start!!!!!!!!!!!!');
 		isMouseDown = true;
 		
 		
@@ -884,7 +886,10 @@ function start() {
         var rect = canvas.getBoundingClientRect();
         mouse.x = e.changedTouches[0].clientX - rect.left - (tapStart.clientX -ball.m_xf.position.x*world_scale) -0.5*world_scale;
 		mouse.y = e.changedTouches[0].clientY - rect.top - (tapStart.clientY -ball.m_xf.position.y*world_scale) -0.5*world_scale;
-		//box2d
+		
+        
+        
+        //box2d
 		handleTouchPadMove(e);
 		
 		mouseColor = '#ffffff';
@@ -901,7 +906,11 @@ function start() {
         var rect = canvas.getBoundingClientRect();
         mouse.x = e.changedTouches[0].clientX - rect.left - (tapStart.clientX -ball.m_xf.position.x*world_scale) -0.5*world_scale;
 		mouse.y = e.changedTouches[0].clientY - rect.top - (tapStart.clientY -ball.m_xf.position.y*world_scale) -0.5*world_scale;
-		//box2d
+		// todo: problem tapStart is changing on iphone
+        //console.log(e.changedTouches[0].clientX);
+        console.log((tapStart.clientX));
+        
+        //box2d
 		handleTouchPadMove(e);
         //box2d
         e.preventDefault();
@@ -1075,6 +1084,7 @@ function updateBox2d() {
             throw_vely = 0;
         } else throw_velx = (ball.m_xf.position.x - (mouse.x / world_scale)) / secondsToApex;
 
+        
         for (var i = 0; i < ballPrediction.length; i++) {
             ballPrediction[i] = predictBallPosAtTimeStep(i * 2, throw_velx, throw_vely);
         }
@@ -1478,8 +1488,9 @@ function updateCountdown(){
 	if(seconds <= 0 && !isMouseDown){
 		ball.SetAwake(true);
 	}
-	if(seconds <= 0 && !horn_playing){
+	if(seconds <= 0 && seconds > -3 && !horn_playing){
 		sound_horn.play();
+        seconds = -4;
 	}
     // format countdown string + set tag value
 	if(seconds >= 0){

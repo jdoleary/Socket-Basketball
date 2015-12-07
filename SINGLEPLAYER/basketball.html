@@ -6,7 +6,7 @@
     <title>Basketball</title>
    <link href='http://fonts.googleapis.com/css?family=Lobster' rel='stylesheet' type='text/css'>
 	<style>
-		*{
+		#endScreen,#countdown{
 		font-family: 'Lobster', cursive;
 		}
 		.notHighlightable{
@@ -139,6 +139,23 @@
 			border-radius:10px;
 		
 		}
+        ul.log{
+            
+          list-style-type: none;
+          pointer-events:none;
+          -webkit-user-select: none;  /* Chrome all / Safari all */
+          -moz-user-select: none;     /* Firefox all */
+          -ms-user-select: none;      /* IE 10+ */
+          user-select: none;  
+          position:absolute;
+          top:0;
+          left:0;
+          z-index:99;
+          font-size:36px;
+        }
+        .error{
+          color:red;
+        }
 		
 	</style>
 	
@@ -149,6 +166,7 @@
 </head>
 
 <body style="background-color:#aaaaaa;">
+    <ul class="log"></ul>
 	<table id="endScreen" cellpadding=0	cellspacing=0 class="absoluteCenter">
 		<tr style="background-color:#ad816b;">
 			<td colspan=2  style="text-align:center">
@@ -318,6 +336,57 @@ var sound_boom = new Audio('boomshakalaka.wav');
 			restart();
 		});
 	});
+    </script>
+    
+    <script>
+    // On screen errors:
+    (function() {
+      "use strict";
+
+      var methods, generateNewMethod, i, j, cur, old, addEvent;
+
+      if ("console" in window) {
+        methods = [
+          "log", "assert", "clear", "count",
+          "debug", "dir", "dirxml", "error",
+          "exception", "group", "groupCollapsed",
+          "groupEnd", "info", "profile", "profileEnd",
+          "table", "time", "timeEnd", "timeStamp",
+          "trace", "warn"
+        ];
+
+        generateNewMethod = function(oldCallback, methodName) {
+          return function() {
+            var args;
+
+            if (typeof arguments == 'object') {
+              $('.log').prepend($('<li/>').text(new Date().toLocaleTimeString() + ' :: ' + (JSON && JSON.stringify ? JSON.stringify(arguments) : arguments)));
+            } else {
+              $('.log').prepend($('<li/>').text(new Date().toLocaleTimeString() + ' :: ' + arguments));
+            }
+            if($('.log').children().length > 10){
+                $('.log').children().last().remove();
+            }
+            args = Array.prototype.slice.call(arguments, 0);
+            Function.prototype.apply.call(oldCallback, console, arguments);
+          };
+        };
+
+        for (i = 0, j = methods.length; i < j; i++) {
+          cur = methods[i];
+          if (cur in console) {
+            old = console[cur];
+            console[cur] = generateNewMethod(old, cur);
+          }
+        }
+      }
+      window.onerror = function(msg, url, line) {
+        $('.log').prepend($('<li/>').addClass('error').text(new Date().toLocaleTimeString() + ' :: ' + msg + ", " + url + ", line " + line));
+        if($('.log').children().length > 10){
+            $('.log').children().last().remove();
+        }
+      };
+    }());
     </script>
 
 </body>
