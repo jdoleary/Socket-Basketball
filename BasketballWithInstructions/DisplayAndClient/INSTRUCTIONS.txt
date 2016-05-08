@@ -1,4 +1,0 @@
-Make sure all npm dependencies are installed (express, socket.io,etc)
-Check that all ip addresses point to the external address of your machine
-run node index.js
-run node server.js
