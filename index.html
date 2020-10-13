@@ -38,7 +38,6 @@
 			margin: 0;
 		}
 		html { overflow: hidden; }
-		@charset "UTF-8";
 		/*!
 		Animate.css - http://daneden.me/animate
 		Licensed under the MIT license - http://opensource.org/licenses/MIT
@@ -154,7 +153,7 @@
 </head>
 
 <body style="background-color:#aaaaaa;">
-	<table id="endScreen" cellpadding=0	cellspacing=0 class="absoluteCenter">
+	<table id="endScreen" style="margin-top:20px;" cellpadding=0	cellspacing=0 class="absoluteCenter">
 		<tr style="background-color:#ad816b;">
 			<td colspan=2  style="text-align:center">
 			<div style="color: #724129">Game Over</div>
@@ -172,7 +171,7 @@
 			<td style="text-align:center">Accuracy</td>
 			<td id="endAcc" style="text-align:center">000</td>
 		</tr>
-		<tr id="restartButton" style="background-color:#487465;">
+		<tr id="restartButton" style="background-color:#487465;cursor:pointer;">
 			<td colspan=2 style="text-align:center">
 			<div style="color: #1c4d3b">Restart</div>
 			</td>
@@ -186,7 +185,7 @@
 		<div id="countdown"  class="notHighlightable" style="position:absolute; left:0; top:10px; width:100%; text-align:center; font-size:42px;"></div>
 				
 		<div id="statsHolder" style="position: absolute; left:0; top:0;"></div>	
-		<div id="wheretoswipe" class="hidden" style="border-style:solid; width: 80%; height:30%; margin-left:10%; position:absolute; top:60%; font-size: 16px; font-size:5vw; text-align: center;"><span style="position:relative; top: 30%;">Touch Here to Aim</span></div>
+		<div id="wheretoswipe" class="hidden notHighlightable" style="border-style:solid; width: 80%; height:30%; margin-left:10%; position:absolute; top:60%; font-size: 16px; font-size:5vw; text-align: center;"><span style="position:relative; top: 30%;">Touch Here to Aim</span></div>
 
 	</div>
 	<div id="canvasResizerHack" style="position:absolute; left: 0px; top: 0px; visibility: hidden; width:100%; height:100%;"></div>
@@ -194,8 +193,9 @@
 	
 	
 	<div id="startScreen" style="background-color:#ad926b;background-repeat: no-repeat;background-size:100%; background-position:center;">
+		<span class="absoluteCenter notHighlightable" style="margin-top:15%;text-align:center;">
 		Click or Tap to Begin!
-        <span class="absoluteCenter notHighlightable" style="margin-top:15%;text-align:center;color:#ffffff;font-size:80pt"></span>
+		</span>
 	</div>
     <script type="text/javascript" src="cloth_sender.js"></script>
 	<script type="text/javascript">
